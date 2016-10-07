@@ -16,6 +16,9 @@ public class GazeGestureManager : MonoBehaviour
 
 	PhotoCapture photoCaptureObject = null;
 
+	Vector3 cameraPosition;
+	Quaternion cameraRotation;
+
 	public GameObject textPrefab;
 	public GameObject status;
 
@@ -55,27 +58,32 @@ public class GazeGestureManager : MonoBehaviour
 			{ "Ocp-Apim-Subscription-Key", "54a11f7e7e3047f481f8e285a7ce5059" },
 			{ "Content-Type", "application/octet-stream" }
 		};
-		status.GetComponent<TextMesh>().text = "loading...";
+
+		Debug.Log(string.Format("cam {0}", cameraPosition));
+		Debug.Log(string.Format("proj {0}", projectionMatrix));
+		Debug.Log(string.Format("cam2world {0}", cameraToWorldMatrix));
+
 		WWW www = new WWW(url, imageData, headers);
 		yield return www;
 		string responseString = www.text;
 		
 		JSONObject j = new JSONObject(responseString);
 		Debug.Log(j);
-		var existing = GameObject.FindGameObjectsWithTag("text");
+		var existing = GameObject.FindGameObjectsWithTag("face");
 
 		foreach (var go in existing ) {
 			Destroy(go);
 		}
 
-		status.SetActive(false);
-
-		Vector3 cameraPosition = cameraToWorldMatrix.GetColumn(3) - cameraToWorldMatrix.GetColumn(2);
-		Debug.Log(string.Format("cam {0}", cameraPosition));
-		Debug.Log(string.Format("proj {0}", projectionMatrix));
-		Debug.Log(string.Format("cam2world {0}", cameraToWorldMatrix));
+		if (j.list.Count == 0)
+		{
+			status.GetComponent<TextMesh>().text = "no faces found";
+		}
+		else
+		{
+			status.SetActive(false);
+		}
 		Matrix4x4 inverseMVP = (projectionMatrix * cameraToWorldMatrix.inverse).inverse; // the projectionMatrix and worldToCameraMatrix are from the photoCapture information
-		Quaternion rotation = Quaternion.LookRotation(-cameraToWorldMatrix.GetColumn(2), cameraToWorldMatrix.GetColumn(1));
 
 		foreach (var result in j.list) {
 			GameObject txtObject = (GameObject)Instantiate(textPrefab);
@@ -96,7 +104,7 @@ public class GazeGestureManager : MonoBehaviour
 			Vector3 position = cameraPosition + offset;
 
 			txtObject.transform.position = position;
-			txtObject.transform.rotation = rotation;
+			txtObject.transform.rotation = cameraRotation;
 			txtObject.tag = "face";
 
 			txtMesh.text = string.Format("Gender: {0}\nAge: {1}\nMoustache: {2}\nBeard: {3}\nSideburns: {4}\nGlasses: {5}\nSmile: {6}", a.GetField("gender").str, a.GetField("age"), f.GetField("moustache"), f.GetField("beard"), f.GetField("sideburns"), a.GetField("glasses").str, a.GetField("smile"));
@@ -119,12 +127,16 @@ public class GazeGestureManager : MonoBehaviour
 
 			var projectionMatrix = new Matrix4x4();
 			photoCaptureFrame.TryGetProjectionMatrix(out projectionMatrix);
+			
+			cameraPosition = cameraToWorldMatrix.GetColumn(3) - cameraToWorldMatrix.GetColumn(2);
+			cameraRotation = Quaternion.LookRotation(-cameraToWorldMatrix.GetColumn(2), cameraToWorldMatrix.GetColumn(1));
+
+			status.GetComponent<TextMesh>().text = "loading...";
+			status.transform.position = cameraPosition;
+			status.transform.rotation = cameraRotation;
 
 			StartCoroutine(PostToFaceAPI(imageBufferList.ToArray(), cameraToWorldMatrix, projectionMatrix));
 		}
-	}
-
-	void Destroy() {
 		photoCaptureObject.StopPhotoModeAsync(OnStoppedPhotoMode);
 	}
 
@@ -144,11 +156,8 @@ public class GazeGestureManager : MonoBehaviour
 		recognizer.TappedEvent += (source, tapCount, ray) =>
 		{
 			Debug.Log("tap");
-			if (photoCaptureObject == null) {
-				Debug.LogError("Camera not yet ready!");
-			} else {
-				photoCaptureObject.TakePhotoAsync(OnCapturedPhotoToMemory);
-			}
+			status.GetComponent<TextMesh>().text = "taking photo...";
+			PhotoCapture.CreateAsync(false, OnPhotoCaptureCreated);
 		};
 		recognizer.StartCapturingGestures();
 
