@@ -21,6 +21,7 @@ public class GazeGestureManager : MonoBehaviour
 
 	public GameObject textPrefab;
 	public GameObject status;
+	public GameObject framePrefab;
 
 	void OnPhotoCaptureCreated(PhotoCapture captureObject)
 	{
@@ -42,7 +43,6 @@ public class GazeGestureManager : MonoBehaviour
 		if (result.success)
 		{
 			Debug.Log("Camera ready");
-			status.GetComponent<TextMesh>().text = "camera ready";
 			photoCaptureObject.TakePhotoAsync(OnCapturedPhotoToMemory);
 		}
 		else
@@ -51,7 +51,7 @@ public class GazeGestureManager : MonoBehaviour
 		}
 	}
 
-	IEnumerator<object> PostToFaceAPI(byte[] imageData, Matrix4x4 cameraToWorldMatrix, Matrix4x4 projectionMatrix) {
+	IEnumerator<object> PostToFaceAPI(byte[] imageData, Matrix4x4 cameraToWorldMatrix) {
 
 		var url = "https://api.projectoxford.ai/face/v1.0/detect?returnFaceAttributes=age,gender,headPose,smile,facialHair,glasses";
 		var headers = new Dictionary<string, string>() {
@@ -59,19 +59,22 @@ public class GazeGestureManager : MonoBehaviour
 			{ "Content-Type", "application/octet-stream" }
 		};
 
-		Debug.Log(string.Format("cam {0}", cameraPosition));
-		Debug.Log(string.Format("proj {0}", projectionMatrix));
-		Debug.Log(string.Format("cam2world {0}", cameraToWorldMatrix));
-
 		WWW www = new WWW(url, imageData, headers);
 		yield return www;
 		string responseString = www.text;
 		
 		JSONObject j = new JSONObject(responseString);
 		Debug.Log(j);
-		var existing = GameObject.FindGameObjectsWithTag("face");
+		var existing = GameObject.FindGameObjectsWithTag("faceText");
 
 		foreach (var go in existing ) {
+			Destroy(go);
+		}
+
+		existing = GameObject.FindGameObjectsWithTag("faceBounds");
+
+		foreach (var go in existing)
+		{
 			Destroy(go);
 		}
 
@@ -83,7 +86,6 @@ public class GazeGestureManager : MonoBehaviour
 		{
 			status.SetActive(false);
 		}
-		Matrix4x4 inverseMVP = (projectionMatrix * cameraToWorldMatrix.inverse).inverse; // the projectionMatrix and worldToCameraMatrix are from the photoCapture information
 
 		foreach (var result in j.list) {
 			GameObject txtObject = (GameObject)Instantiate(textPrefab);
@@ -91,21 +93,21 @@ public class GazeGestureManager : MonoBehaviour
 			var a = result.GetField("faceAttributes");
 			var f = a.GetField("facialHair");
 			var p = result.GetField("faceRectangle");
-			var top = p.GetField("top").i;
-			var left = p.GetField("left").i;
-			var width = p.GetField("width").i;
-			var height = p.GetField("height").i;
+			var top = p.GetField("top").f / cameraResolution.height -.5f;
+			var left = p.GetField("left").f / cameraResolution.width - .5f;
+			var width = p.GetField("width").f / cameraResolution.width;
+			var height = p.GetField("height").f / cameraResolution.height;
 
-			Vector3 infoOffsetPoint = new Vector3(top, left + width, 100);
-			Debug.Log(string.Format("info offset {0}", infoOffsetPoint));
-			Vector3 offset = inverseMVP.MultiplyPoint3x4(infoOffsetPoint);
-			Debug.Log(offset);
+			GameObject faceBounds = (GameObject)Instantiate(framePrefab);
+			faceBounds.transform.position = cameraToWorldMatrix.MultiplyPoint3x4(new Vector3(left + width/2, top + height/2, -1));
+			faceBounds.transform.rotation = cameraRotation;
+			faceBounds.transform.localScale = new Vector3(width, height, .1f);
+			faceBounds.tag = "faceBounds";
 
-			Vector3 position = cameraPosition + offset;
-
-			txtObject.transform.position = position;
+			Vector3 origin = cameraToWorldMatrix.MultiplyPoint3x4(new Vector3(left + width, top, -1));
+			txtObject.transform.position = origin;
 			txtObject.transform.rotation = cameraRotation;
-			txtObject.tag = "face";
+			txtObject.tag = "faceText";
 
 			txtMesh.text = string.Format("Gender: {0}\nAge: {1}\nMoustache: {2}\nBeard: {3}\nSideburns: {4}\nGlasses: {5}\nSmile: {6}", a.GetField("gender").str, a.GetField("age"), f.GetField("moustache"), f.GetField("beard"), f.GetField("sideburns"), a.GetField("glasses").str, a.GetField("smile"));
 		}
@@ -116,26 +118,21 @@ public class GazeGestureManager : MonoBehaviour
 		if (result.success)
 		{
 			Debug.Log("photo captured");
-			status.GetComponent<TextMesh>().text = "photo captured";
-			status.SetActive(true);
 			List<byte> imageBufferList = new List<byte>();
 			// Copy the raw IMFMediaBuffer data into our empty byte list.
 			photoCaptureFrame.CopyRawImageDataIntoBuffer(imageBufferList);
 
 			var cameraToWorldMatrix = new Matrix4x4();
 			photoCaptureFrame.TryGetCameraToWorldMatrix(out cameraToWorldMatrix);
-
-			var projectionMatrix = new Matrix4x4();
-			photoCaptureFrame.TryGetProjectionMatrix(out projectionMatrix);
 			
-			cameraPosition = cameraToWorldMatrix.GetColumn(3) - cameraToWorldMatrix.GetColumn(2);
+			cameraPosition = cameraToWorldMatrix.MultiplyPoint3x4(new Vector3(0,0,-1));
 			cameraRotation = Quaternion.LookRotation(-cameraToWorldMatrix.GetColumn(2), cameraToWorldMatrix.GetColumn(1));
 
-			status.GetComponent<TextMesh>().text = "loading...";
+			status.GetComponent<TextMesh>().text = "photo captured, processing...";
 			status.transform.position = cameraPosition;
 			status.transform.rotation = cameraRotation;
 
-			StartCoroutine(PostToFaceAPI(imageBufferList.ToArray(), cameraToWorldMatrix, projectionMatrix));
+			StartCoroutine(PostToFaceAPI(imageBufferList.ToArray(), cameraToWorldMatrix));
 		}
 		photoCaptureObject.StopPhotoModeAsync(OnStoppedPhotoMode);
 	}
@@ -157,6 +154,7 @@ public class GazeGestureManager : MonoBehaviour
 		{
 			Debug.Log("tap");
 			status.GetComponent<TextMesh>().text = "taking photo...";
+			status.SetActive(true);
 			PhotoCapture.CreateAsync(false, OnPhotoCaptureCreated);
 		};
 		recognizer.StartCapturingGestures();
