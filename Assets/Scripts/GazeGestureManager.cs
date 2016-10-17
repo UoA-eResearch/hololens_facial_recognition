@@ -81,11 +81,15 @@ public class GazeGestureManager : MonoBehaviour
 		if (j.list.Count == 0)
 		{
 			status.GetComponent<TextMesh>().text = "no faces found";
+			yield break;
 		}
 		else
 		{
 			status.SetActive(false);
 		}
+
+		var faceRectangles = "";
+		Dictionary<string, TextMesh> textmeshes = new Dictionary<string, TextMesh>();
 
 		foreach (var result in j.list) {
 			GameObject txtObject = (GameObject)Instantiate(textPrefab);
@@ -97,6 +101,15 @@ public class GazeGestureManager : MonoBehaviour
 			float left = p.GetField("left").f / cameraResolution.width - .5f;
 			float width = p.GetField("width").f / cameraResolution.width;
 			float height = p.GetField("height").f / cameraResolution.height;
+
+			string id = string.Format("{0},{1},{2},{3}", p.GetField("left"), p.GetField("top"), p.GetField("width"), p.GetField("height"));
+			textmeshes[id] = txtMesh;
+
+			if (faceRectangles == "") {
+				faceRectangles = id;
+			} else {
+				faceRectangles += ";" + id;
+			}
 
 			GameObject faceBounds = (GameObject)Instantiate(framePrefab);
 			faceBounds.transform.position = cameraToWorldMatrix.MultiplyPoint3x4(pixelToCameraMatrix.MultiplyPoint3x4(new Vector3(left + width / 2, top, 0)));
@@ -116,6 +129,45 @@ public class GazeGestureManager : MonoBehaviour
 
 			txtMesh.text = string.Format("Gender: {0}\nAge: {1}\nMoustache: {2}\nBeard: {3}\nSideburns: {4}\nGlasses: {5}\nSmile: {6}", a.GetField("gender").str, a.GetField("age"), f.GetField("moustache"), f.GetField("beard"), f.GetField("sideburns"), a.GetField("glasses").str, a.GetField("smile"));
 		}
+
+		// Emotion API
+
+		url = "https://api.projectoxford.ai/emotion/v1.0/recognize?faceRectangles=" + faceRectangles;
+
+		headers["Ocp-Apim-Subscription-Key"] = "6c72ec57a32c460d9419f56eeca77368";
+
+		www = new WWW(url, imageData, headers);
+		yield return www;
+		responseString = www.text;
+
+		j = new JSONObject(responseString);
+		Debug.Log(j);
+		existing = GameObject.FindGameObjectsWithTag("emoteText");
+
+		foreach (var go in existing)
+		{
+			Destroy(go);
+		}
+
+		foreach (var result in j.list) {
+			var p = result.GetField("faceRectangle");
+			string id = string.Format("{0},{1},{2},{3}", p.GetField("left"), p.GetField("top"), p.GetField("width"), p.GetField("height"));
+			var txtMesh = textmeshes[id];
+			var obj = result.GetField("scores");
+			string highestEmote = "Unknown";
+			float highestC = 0;
+			for (int i = 0; i < obj.list.Count; i++)
+			{
+				string key = obj.keys[i];
+				float c = obj.list[i].f;
+				if (c > highestC) {
+					highestEmote = key;
+					highestC = c;
+				}
+			}
+			txtMesh.text += "\nEmotion: " + highestEmote;
+		}
+
 	}
 
 	void OnCapturedPhotoToMemory(PhotoCapture.PhotoCaptureResult result, PhotoCaptureFrame photoCaptureFrame)
