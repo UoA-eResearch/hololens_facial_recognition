@@ -58,26 +58,6 @@ public class GazeGestureManager : MonoBehaviour
 		}
 	}
 
-	byte[] Crop(byte[] src, int srcWidth, int xStart, int xEnd, int yStart, int yEnd)
-	{
-		var width = xEnd - xStart;
-		var height = yEnd - yStart;
-
-		var dst = new byte[width * height * 4];
-
-		for (var iY = yStart; iY < yEnd; iY++)
-		{
-			Array.Copy(src, GetIndex(srcWidth, xStart, iY), dst, GetIndex(width, 0, iY - yStart), width * 4);
-		}
-
-		return dst;
-	}
-
-	int GetIndex(int width, int x, int y)
-	{
-		return (x + (width * y)) * 4;
-	}
-
 	IEnumerator<object> PostToFaceAPI(byte[] imageData, Matrix4x4 cameraToWorldMatrix, Matrix4x4 pixelToCameraMatrix) {
 
 		var url = "https://api.projectoxford.ai/face/v1.0/detect?returnFaceAttributes=age,gender,headPose,smile,facialHair,glasses";
@@ -135,7 +115,12 @@ public class GazeGestureManager : MonoBehaviour
 
 			try
 			{
-				byte[] justThisFace = Crop(imageData, cameraResolution.width, (int)p.GetField("left").i, (int)p.GetField("left").i + (int)p.GetField("width").i, (int)p.GetField("top").i, (int)p.GetField("height").i);
+				var source = new Texture2D(0, 0);
+				source.LoadImage(imageData);
+				var dest = new Texture2D((int)p["width"].i, (int)p["height"].i);
+				dest.SetPixels(source.GetPixels((int)p["left"].i, (int)p["top"].i, (int)p["width"].i, (int)p["height"].i));
+				byte[] justThisFace = dest.EncodeToPNG();
+				File.WriteAllBytes("cropped.png", justThisFace);
 				recognitionJobs[id] = new WWW(OpenFaceUrl, justThisFace);
 			} catch (Exception e) {
 				Debug.LogError(e);
