@@ -2,6 +2,7 @@
 // https://github.com/cemdervis/SharpConfig
 
 using System;
+using System.Linq;
 using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
@@ -258,21 +259,6 @@ namespace SharpConfig
 
         private static bool ShouldIgnoreMappingFor(MemberInfo member)
         {
-            if (member.GetCustomAttributes(typeof(IgnoreAttribute), false).Length > 0)
-            {
-                return true;
-            }
-            else
-            {
-                var prop = member as PropertyInfo;
-                if (prop != null)
-                    return prop.PropertyType.GetCustomAttributes(typeof(IgnoreAttribute), false).Length > 0;
-
-                var field = member as FieldInfo;
-                if (field != null)
-                    return field.FieldType.GetCustomAttributes(typeof(IgnoreAttribute), false).Length > 0;
-            }
-
             return false;
         }
 
@@ -493,7 +479,7 @@ namespace SharpConfig
                 bool hasPreComments = mPreComments != null && mPreComments.Count > 0;
 
                 string[] preCommentStrings = hasPreComments ?
-                    mPreComments.ConvertAll(c => c.ToString()).ToArray() : null;
+                    mPreComments.Select(c => c.ToString()).ToArray() : null;
 
                 if (Comment != null && hasPreComments)
                 {

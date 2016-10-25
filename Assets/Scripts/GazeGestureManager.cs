@@ -7,6 +7,7 @@ using SharpConfig;
 using System.Text;
 using System.Threading;
 using System.IO;
+using System;
 
 public class GazeGestureManager : MonoBehaviour
 {
@@ -57,6 +58,26 @@ public class GazeGestureManager : MonoBehaviour
 		}
 	}
 
+	byte[] Crop(byte[] src, int srcWidth, int xStart, int xEnd, int yStart, int yEnd)
+	{
+		var width = xEnd - xStart;
+		var height = yEnd - yStart;
+
+		var dst = new byte[width * height * 4];
+
+		for (var iY = yStart; iY < yEnd; iY++)
+		{
+			Array.Copy(src, GetIndex(srcWidth, xStart, iY), dst, GetIndex(width, 0, iY - yStart), width * 4);
+		}
+
+		return dst;
+	}
+
+	int GetIndex(int width, int x, int y)
+	{
+		return (x + (width * y)) * 4;
+	}
+
 	IEnumerator<object> PostToFaceAPI(byte[] imageData, Matrix4x4 cameraToWorldMatrix, Matrix4x4 pixelToCameraMatrix) {
 
 		var url = "https://api.projectoxford.ai/face/v1.0/detect?returnFaceAttributes=age,gender,headPose,smile,facialHair,glasses";
@@ -96,6 +117,7 @@ public class GazeGestureManager : MonoBehaviour
 
 		var faceRectangles = "";
 		Dictionary<string, TextMesh> textmeshes = new Dictionary<string, TextMesh>();
+		Dictionary<string, WWW> recognitionJobs = new Dictionary<string, WWW>();
 
 		foreach (var result in j.list) {
 			GameObject txtObject = (GameObject)Instantiate(textPrefab);
@@ -110,6 +132,10 @@ public class GazeGestureManager : MonoBehaviour
 
 			string id = string.Format("{0},{1},{2},{3}", p.GetField("left"), p.GetField("top"), p.GetField("width"), p.GetField("height"));
 			textmeshes[id] = txtMesh;
+
+			byte[] justThisFace = Crop(imageData, cameraResolution.width, (int)p.GetField("left").i, (int)p.GetField("left").i + (int)p.GetField("width").i, (int)p.GetField("top").i, (int)p.GetField("height").i);
+
+			recognitionJobs[id] = new WWW(OpenFaceUrl, justThisFace);
 
 			if (faceRectangles == "") {
 				faceRectangles = id;
@@ -172,6 +198,18 @@ public class GazeGestureManager : MonoBehaviour
 				}
 			}
 			txtMesh.text += "\nEmotion: " + highestEmote;
+		}
+
+		foreach (var kv in recognitionJobs) {
+			var id = kv.Key;
+			www = kv.Value;
+			yield return www;
+			responseString = www.text;
+			j = new JSONObject(responseString);
+			Debug.Log(j);
+			var txtMesh = textmeshes[id];
+			var d = j["data"];
+			txtMesh.text += string.Format("\nRecognition confidence: {0}\nUPI: {1}\nName: {2}", j["confidence"], j["uid"], d["fullName"]);
 		}
 
 	}

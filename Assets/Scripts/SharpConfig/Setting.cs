@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace SharpConfig
 {
@@ -550,7 +551,7 @@ namespace SharpConfig
                 bool hasPreComments = mPreComments != null && mPreComments.Count > 0;
 
                 string[] preCommentStrings = hasPreComments ?
-                    mPreComments.ConvertAll(c => c.ToString()).ToArray() : null;
+                    mPreComments.Select(c => c.ToString()).ToArray() : null;
 
                 if (Comment != null && hasPreComments)
                 {
