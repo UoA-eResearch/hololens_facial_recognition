@@ -28,7 +28,7 @@ public class GazeGestureManager : MonoBehaviour
 	
 	string FaceAPIKey = "54a11f7e7e3047f481f8e285a7ce5059";
 	string EmotionAPIKey = "6c72ec57a32c460d9419f56eeca77368";
-	string OpenFaceUrl = "ml.cer.auckland.ac.nz:8000";
+	string OpenFaceUrl = "http://ml.cer.auckland.ac.nz:8000";
 
 	void OnPhotoCaptureCreated(PhotoCapture captureObject)
 	{
@@ -118,10 +118,13 @@ public class GazeGestureManager : MonoBehaviour
 				var source = new Texture2D(0, 0);
 				source.LoadImage(imageData);
 				var dest = new Texture2D((int)p["width"].i, (int)p["height"].i);
-				dest.SetPixels(source.GetPixels((int)p["left"].i, (int)p["top"].i, (int)p["width"].i, (int)p["height"].i));
+				dest.SetPixels(source.GetPixels((int)p["left"].i, cameraResolution.height - (int)p["top"].i - (int)p["height"].i, (int)p["width"].i, (int)p["height"].i));
 				byte[] justThisFace = dest.EncodeToPNG();
-				File.WriteAllBytes("cropped.png", justThisFace);
+				string filepath = Path.Combine(Application.persistentDataPath, "cropped.png");
+				File.WriteAllBytes(filepath, justThisFace);
+				Debug.Log("saved " + filepath);
 				recognitionJobs[id] = new WWW(OpenFaceUrl, justThisFace);
+				Debug.Log(recognitionJobs.Count + " recog jobs running");
 			} catch (Exception e) {
 				Debug.LogError(e);
 			}
@@ -145,7 +148,7 @@ public class GazeGestureManager : MonoBehaviour
 			txtObject.transform.rotation = cameraRotation;
 			txtObject.tag = "faceText";
 			if (j.list.Count > 1) {
-				txtObject.transform.localScale /= 5;
+				txtObject.transform.localScale /= 2;
 			}
 
 			txtMesh.text = string.Format("Gender: {0}\nAge: {1}\nMoustache: {2}\nBeard: {3}\nSideburns: {4}\nGlasses: {5}\nSmile: {6}", a.GetField("gender").str, a.GetField("age"), f.GetField("moustache"), f.GetField("beard"), f.GetField("sideburns"), a.GetField("glasses").str, a.GetField("smile"));
@@ -188,6 +191,8 @@ public class GazeGestureManager : MonoBehaviour
 			}
 			txtMesh.text += "\nEmotion: " + highestEmote;
 		}
+
+		// OpenFace API
 
 		foreach (var kv in recognitionJobs) {
 			var id = kv.Key;
