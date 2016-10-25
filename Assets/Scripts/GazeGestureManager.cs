@@ -3,8 +3,10 @@ using UnityEngine.VR.WSA.Input;
 using UnityEngine.VR.WSA.WebCam;
 using System.Linq;
 using System.Collections.Generic;
+using SharpConfig;
 using System.Text;
 using System.Threading;
+using System.IO;
 
 public class GazeGestureManager : MonoBehaviour
 {
@@ -22,6 +24,10 @@ public class GazeGestureManager : MonoBehaviour
 	public GameObject textPrefab;
 	public GameObject status;
 	public GameObject framePrefab;
+	
+	string FaceAPIKey = "54a11f7e7e3047f481f8e285a7ce5059";
+	string EmotionAPIKey = "6c72ec57a32c460d9419f56eeca77368";
+	string OpenFaceUrl = "ml.cer.auckland.ac.nz:8000";
 
 	void OnPhotoCaptureCreated(PhotoCapture captureObject)
 	{
@@ -55,7 +61,7 @@ public class GazeGestureManager : MonoBehaviour
 
 		var url = "https://api.projectoxford.ai/face/v1.0/detect?returnFaceAttributes=age,gender,headPose,smile,facialHair,glasses";
 		var headers = new Dictionary<string, string>() {
-			{ "Ocp-Apim-Subscription-Key", "54a11f7e7e3047f481f8e285a7ce5059" },
+			{ "Ocp-Apim-Subscription-Key", FaceAPIKey },
 			{ "Content-Type", "application/octet-stream" }
 		};
 
@@ -134,7 +140,7 @@ public class GazeGestureManager : MonoBehaviour
 
 		url = "https://api.projectoxford.ai/emotion/v1.0/recognize?faceRectangles=" + faceRectangles;
 
-		headers["Ocp-Apim-Subscription-Key"] = "6c72ec57a32c460d9419f56eeca77368";
+		headers["Ocp-Apim-Subscription-Key"] = EmotionAPIKey;
 
 		www = new WWW(url, imageData, headers);
 		yield return www;
@@ -221,5 +227,16 @@ public class GazeGestureManager : MonoBehaviour
 		recognizer.StartCapturingGestures();
 
 		PhotoCapture.CreateAsync(false, OnPhotoCaptureCreated);
+
+		if (File.Exists("config.cfg"))
+		{
+			var cfg = Configuration.LoadFromFile("config.cfg");
+			var apiSettings = cfg["API"];
+			FaceAPIKey = apiSettings["FaceAPIKey"].StringValue;
+			EmotionAPIKey = apiSettings["EmotionAPIKey"].StringValue;
+			OpenFaceUrl = apiSettings["OpenFaceUrl"].StringValue;
+			Debug.Log("loaded settings from config.cfg");
+		}
+
 	}
 }
