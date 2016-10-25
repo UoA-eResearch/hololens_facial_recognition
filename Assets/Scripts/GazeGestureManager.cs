@@ -133,9 +133,13 @@ public class GazeGestureManager : MonoBehaviour
 			string id = string.Format("{0},{1},{2},{3}", p.GetField("left"), p.GetField("top"), p.GetField("width"), p.GetField("height"));
 			textmeshes[id] = txtMesh;
 
-			byte[] justThisFace = Crop(imageData, cameraResolution.width, (int)p.GetField("left").i, (int)p.GetField("left").i + (int)p.GetField("width").i, (int)p.GetField("top").i, (int)p.GetField("height").i);
-
-			recognitionJobs[id] = new WWW(OpenFaceUrl, justThisFace);
+			try
+			{
+				byte[] justThisFace = Crop(imageData, cameraResolution.width, (int)p.GetField("left").i, (int)p.GetField("left").i + (int)p.GetField("width").i, (int)p.GetField("top").i, (int)p.GetField("height").i);
+				recognitionJobs[id] = new WWW(OpenFaceUrl, justThisFace);
+			} catch (Exception e) {
+				Debug.LogError(e);
+			}
 
 			if (faceRectangles == "") {
 				faceRectangles = id;
