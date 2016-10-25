@@ -203,7 +203,12 @@ public class GazeGestureManager : MonoBehaviour
 			Debug.Log(j);
 			var txtMesh = textmeshes[id];
 			var d = j["data"];
-			txtMesh.text += string.Format("\nRecognition confidence: {0}\nUPI: {1}\nName: {2}", j["confidence"], j["uid"], d["fullName"]);
+			var recogString = string.Format("\nRecognition confidence: {0}\nUPI: {1}\nName: {2}", j["confidence"], j["uid"].str, d["fullName"].str);
+			if (d["positions"].Count > 0) {
+				var p = d["positions"][0];
+				recogString += string.Format("\nPosition: {0}\nDepartment: {1}\nReports to: {2}", p["position"].str, p["department"]["name"].str, p["reportsTo"]["name"].str);
+			}
+			txtMesh.text += recogString;
 		}
 
 	}
