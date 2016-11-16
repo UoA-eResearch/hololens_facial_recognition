@@ -1,4 +1,4 @@
 [API]
 FaceAPIKey = 54a11f7e7e3047f481f8e285a7ce5059
 EmotionAPIKey = 6c72ec57a32c460d9419f56eeca77368
-OpenFaceUrl = http://ml.cer.auckland.ac.nz:8000 # A running instance of https://github.com/UoA-eResearch/openface_mass_compare/blob/master/compare.py
+OpenFaceUrl = http://ml.cer.auckland.ac.nz:8000 # A running instance of https://hub.docker.com/r/uoacer/openface-mass-compare/
