@@ -202,13 +202,28 @@ public class GazeGestureManager : MonoBehaviour
 			j = new JSONObject(responseString);
 			Debug.Log(j);
 			var txtMesh = textmeshes[id];
-			var d = j["data"];
-			var recogString = string.Format("\nRecognition confidence: {0}\nUPI: {1}\nName: {2}", j["confidence"], j["uid"].str, d["fullName"].str);
-			if (d["positions"].Count > 0) {
-				var p = d["positions"][0];
-				recogString += string.Format("\nPosition: {0}\nDepartment: {1}\nReports to: {2}", p["position"].str, p["department"]["name"].str, p["reportsTo"]["name"].str);
+			if (j.HasField("error"))
+			{
+				txtMesh.text += "\n" + j["error"].str;
 			}
-			txtMesh.text += recogString;
+			else
+			{
+				var d = j["data"];
+				var recogString = string.Format("\nRecognition confidence: {0}\nUPI: {1}", j["confidence"], j["uid"].str);
+
+				if (d.HasField("fullName"))
+				{
+					recogString += string.Format("\nName: {0}", d["fullName"].str);
+					if (d.HasField("positions") && d["positions"].Count > 0)
+					{
+						var p = d["positions"][0];
+						recogString += string.Format("\nPosition: {0}\nDepartment: {1}\nReports to: {2}", p["position"].str, p["department"]["name"].str, p["reportsTo"]["name"].str);
+					}
+				} else {
+					recogString += d;
+				}
+				txtMesh.text += recogString;
+			}
 		}
 
 	}
