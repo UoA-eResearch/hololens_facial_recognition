@@ -6,6 +6,6 @@ Air tap or click with the clicker to take a photo/post it to the Face API
 Copy config.cfg.example to config.cfg and edit it, replacing my API keys with your own  
 You can get API keys from https://www.microsoft.com/cognitive-services/en-us/subscriptions  
 
-Interfacing with https://github.com/UoA-eResearch/openface_mass_compare/blob/master/compare.py for individual recognition is optional  
+Interfacing with https://hub.docker.com/r/uoacer/openface-mass-compare/ for individual recognition is optional  
 
 ![Screenshot](screenshot.jpg)
