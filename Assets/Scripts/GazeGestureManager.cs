@@ -42,7 +42,7 @@ public class GazeGestureManager : MonoBehaviour
 		c.cameraResolutionHeight = cameraResolution.height;
 		c.pixelFormat = CapturePixelFormat.PNG;
 
-		captureObject.StartPhotoModeAsync(c, false, OnPhotoModeStarted);
+		captureObject.StartPhotoModeAsync(c, OnPhotoModeStarted);
 	}
 
 	private void OnPhotoModeStarted(PhotoCapture.PhotoCaptureResult result)
