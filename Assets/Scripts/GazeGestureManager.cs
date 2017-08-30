@@ -22,6 +22,8 @@ public class GazeGestureManager : MonoBehaviour
 	Vector3 cameraPosition;
 	Quaternion cameraRotation;
 
+	bool _busy = false;
+
 	public GameObject textPrefab;
 	public GameObject status;
 	public GameObject framePrefab;
@@ -55,6 +57,7 @@ public class GazeGestureManager : MonoBehaviour
 		else
 		{
 			Debug.LogError("Unable to start photo mode!");
+			_busy = false;
 		}
 	}
 
@@ -260,6 +263,7 @@ public class GazeGestureManager : MonoBehaviour
 	{
 		photoCaptureObject.Dispose();
 		photoCaptureObject = null;
+		_busy = false;
 	}
 
 	// Use this for initialization
@@ -272,11 +276,16 @@ public class GazeGestureManager : MonoBehaviour
 		recognizer.TappedEvent += (source, tapCount, ray) =>
 		{
 			Debug.Log("tap");
-			status.GetComponent<TextMesh>().text = "taking photo...";
-			status.SetActive(true);
-			PhotoCapture.CreateAsync(false, OnPhotoCaptureCreated);
+			if (!_busy)
+			{
+				_busy = true;
+				status.GetComponent<TextMesh>().text = "taking photo...";
+				status.SetActive(true);
+				PhotoCapture.CreateAsync(false, OnPhotoCaptureCreated);
+			}
 		};
 		recognizer.StartCapturingGestures();
+		status.GetComponent<TextMesh>().text = "taking photo...";
 
 		PhotoCapture.CreateAsync(false, OnPhotoCaptureCreated);
 
