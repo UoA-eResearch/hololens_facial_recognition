@@ -27,10 +27,8 @@ public class GazeGestureManager : MonoBehaviour
 	public GameObject textPrefab;
 	public GameObject status;
 	public GameObject framePrefab;
-	
-	string FaceAPIKey = "54a11f7e7e3047f481f8e285a7ce5059";
-	string EmotionAPIKey = "6c72ec57a32c460d9419f56eeca77368";
-	string OpenFaceUrl = "http://ml.cer.auckland.ac.nz:8000";
+
+	public string faceApiUrl = "http://faceapi.us.to/";
 
 	void OnPhotoCaptureCreated(PhotoCapture captureObject)
 	{
@@ -62,19 +60,11 @@ public class GazeGestureManager : MonoBehaviour
 	}
 
 	IEnumerator<object> PostToFaceAPI(byte[] imageData, Matrix4x4 cameraToWorldMatrix, Matrix4x4 pixelToCameraMatrix) {
-
-		var url = "https://api.projectoxford.ai/face/v1.0/detect?returnFaceAttributes=age,gender,headPose,smile,facialHair,glasses";
-		var headers = new Dictionary<string, string>() {
-			{ "Ocp-Apim-Subscription-Key", FaceAPIKey },
-			{ "Content-Type", "application/octet-stream" }
-		};
-
-		WWW www = new WWW(url, imageData, headers);
+		WWW www = new WWW(faceApiUrl, imageData);
 		yield return www;
 		string responseString = www.text;
-		
+		Debug.Log(responseString);
 		JSONObject j = new JSONObject(responseString);
-		Debug.Log(j);
 		var existing = GameObject.FindGameObjectsWithTag("faceText");
 
 		foreach (var go in existing ) {
@@ -98,45 +88,14 @@ public class GazeGestureManager : MonoBehaviour
 			status.SetActive(false);
 		}
 
-		var faceRectangles = "";
-		Dictionary<string, TextMesh> textmeshes = new Dictionary<string, TextMesh>();
-		Dictionary<string, WWW> recognitionJobs = new Dictionary<string, WWW>();
-
 		foreach (var result in j.list) {
 			GameObject txtObject = (GameObject)Instantiate(textPrefab);
 			TextMesh txtMesh = txtObject.GetComponent<TextMesh>();
-			var a = result.GetField("faceAttributes");
-			var f = a.GetField("facialHair");
-			var p = result.GetField("faceRectangle");
-			float top = -(p.GetField("top").f / cameraResolution.height -.5f);
-			float left = p.GetField("left").f / cameraResolution.width - .5f;
-			float width = p.GetField("width").f / cameraResolution.width;
-			float height = p.GetField("height").f / cameraResolution.height;
-
-			string id = string.Format("{0},{1},{2},{3}", p.GetField("left"), p.GetField("top"), p.GetField("width"), p.GetField("height"));
-			textmeshes[id] = txtMesh;
-
-			try
-			{
-				var source = new Texture2D(0, 0);
-				source.LoadImage(imageData);
-				var dest = new Texture2D((int)p["width"].i, (int)p["height"].i);
-				dest.SetPixels(source.GetPixels((int)p["left"].i, cameraResolution.height - (int)p["top"].i - (int)p["height"].i, (int)p["width"].i, (int)p["height"].i));
-				byte[] justThisFace = dest.EncodeToPNG();
-				string filepath = Path.Combine(Application.persistentDataPath, "cropped.png");
-				File.WriteAllBytes(filepath, justThisFace);
-				Debug.Log("saved " + filepath);
-				recognitionJobs[id] = new WWW(OpenFaceUrl, justThisFace);
-				Debug.Log(recognitionJobs.Count + " recog jobs running");
-			} catch (Exception e) {
-				Debug.LogError(e);
-			}
-
-			if (faceRectangles == "") {
-				faceRectangles = id;
-			} else {
-				faceRectangles += ";" + id;
-			}
+			var r = result["kairos"];
+			float top = -(r["top"].f / cameraResolution.height -.5f);
+			float left = r["left"].f / cameraResolution.width - .5f;
+			float width = r["width"].f / cameraResolution.width;
+			float height = r["height"].f / cameraResolution.height;
 
 			GameObject faceBounds = (GameObject)Instantiate(framePrefab);
 			faceBounds.transform.position = cameraToWorldMatrix.MultiplyPoint3x4(pixelToCameraMatrix.MultiplyPoint3x4(new Vector3(left + width / 2, top, 0)));
@@ -154,81 +113,8 @@ public class GazeGestureManager : MonoBehaviour
 				txtObject.transform.localScale /= 2;
 			}
 
-			txtMesh.text = string.Format("Gender: {0}\nAge: {1}\nMoustache: {2}\nBeard: {3}\nSideburns: {4}\nGlasses: {5}\nSmile: {6}", a.GetField("gender").str, a.GetField("age"), f.GetField("moustache"), f.GetField("beard"), f.GetField("sideburns"), a.GetField("glasses").str, a.GetField("smile"));
+			txtMesh.text = result["text"].str;
 		}
-
-		// Emotion API
-
-		url = "https://api.projectoxford.ai/emotion/v1.0/recognize?faceRectangles=" + faceRectangles;
-
-		headers["Ocp-Apim-Subscription-Key"] = EmotionAPIKey;
-
-		www = new WWW(url, imageData, headers);
-		yield return www;
-		responseString = www.text;
-
-		j = new JSONObject(responseString);
-		Debug.Log(j);
-		existing = GameObject.FindGameObjectsWithTag("emoteText");
-
-		foreach (var go in existing)
-		{
-			Destroy(go);
-		}
-
-		foreach (var result in j.list) {
-			var p = result.GetField("faceRectangle");
-			string id = string.Format("{0},{1},{2},{3}", p.GetField("left"), p.GetField("top"), p.GetField("width"), p.GetField("height"));
-			var txtMesh = textmeshes[id];
-			var obj = result.GetField("scores");
-			string highestEmote = "Unknown";
-			float highestC = 0;
-			for (int i = 0; i < obj.list.Count; i++)
-			{
-				string key = obj.keys[i];
-				float c = obj.list[i].f;
-				if (c > highestC) {
-					highestEmote = key;
-					highestC = c;
-				}
-			}
-			txtMesh.text += "\nEmotion: " + highestEmote;
-		}
-
-		// OpenFace API
-
-		foreach (var kv in recognitionJobs) {
-			var id = kv.Key;
-			www = kv.Value;
-			yield return www;
-			responseString = www.text;
-			j = new JSONObject(responseString);
-			Debug.Log(j);
-			var txtMesh = textmeshes[id];
-			if (j.HasField("error"))
-			{
-				txtMesh.text += "\n" + j["error"].str;
-			}
-			else
-			{
-				var d = j["data"];
-				var recogString = string.Format("\nRecognition confidence: {0}\nUPI: {1}", j["confidence"], j["uid"].str);
-
-				if (d.HasField("fullName"))
-				{
-					recogString += string.Format("\nName: {0}", d["fullName"].str);
-					if (d.HasField("positions") && d["positions"].Count > 0)
-					{
-						var p = d["positions"][0];
-						recogString += string.Format("\nPosition: {0}\nDepartment: {1}\nReports to: {2}", p["position"].str, p["department"]["name"].str, p["reportsTo"]["name"].str);
-					}
-				} else {
-					recogString += d;
-				}
-				txtMesh.text += recogString;
-			}
-		}
-
 	}
 
 	void OnCapturedPhotoToMemory(PhotoCapture.PhotoCaptureResult result, PhotoCaptureFrame photoCaptureFrame)
@@ -286,18 +172,8 @@ public class GazeGestureManager : MonoBehaviour
 		};
 		recognizer.StartCapturingGestures();
 		status.GetComponent<TextMesh>().text = "taking photo...";
+		_busy = true;
 
 		PhotoCapture.CreateAsync(false, OnPhotoCaptureCreated);
-
-		if (File.Exists("config.cfg"))
-		{
-			var cfg = Configuration.LoadFromFile("config.cfg");
-			var apiSettings = cfg["API"];
-			FaceAPIKey = apiSettings["FaceAPIKey"].StringValue;
-			EmotionAPIKey = apiSettings["EmotionAPIKey"].StringValue;
-			OpenFaceUrl = apiSettings["OpenFaceUrl"].StringValue;
-			Debug.Log("loaded settings from config.cfg");
-		}
-
 	}
 }

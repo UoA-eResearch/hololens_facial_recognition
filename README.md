@@ -1,11 +1,7 @@
 # hololens_facial_recognition
-Facial recognition for the Microsoft Hololens. You'd need the Hololens version of Unity to build it.  
+Facial recognition for the Microsoft Hololens.
 
-Air tap or click with the clicker to take a photo/post it to the Face API  
-  
-Copy config.cfg.example to config.cfg and edit it, replacing my API keys with your own  
-You can get API keys from https://www.microsoft.com/cognitive-services/en-us/subscriptions  
-
-Interfacing with https://hub.docker.com/r/uoacer/openface-mass-compare/ for individual recognition is optional  
+Click the Main Camera in Unity and edit Face Api Url if you need to point it to a different running instance of https://github.com/UoA-eResearch/face_api  
+Air tap or click with the clicker to take a photo/post it to the Face API.  
 
 ![Screenshot](screenshot.jpg)
