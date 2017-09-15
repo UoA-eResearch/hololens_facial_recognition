@@ -92,8 +92,8 @@ public class GazeGestureManager : MonoBehaviour
 			GameObject txtObject = (GameObject)Instantiate(textPrefab);
 			TextMesh txtMesh = txtObject.GetComponent<TextMesh>();
 			var r = result["kairos"];
-			float top = -(r["top"].f / cameraResolution.height -.5f);
-			float left = r["left"].f / cameraResolution.width - .5f;
+			float top = -(r["topLeftY"].f / cameraResolution.height -.5f);
+			float left = r["topLeftX"].f / cameraResolution.width - .5f;
 			float width = r["width"].f / cameraResolution.width;
 			float height = r["height"].f / cameraResolution.height;
 
@@ -104,6 +104,7 @@ public class GazeGestureManager : MonoBehaviour
 			scale.z = .1f;
 			faceBounds.transform.localScale = scale;
 			faceBounds.tag = "faceBounds";
+			Debug.Log(string.Format("{0},{1} translates to {2},{3}", left, top, faceBounds.transform.position.x, faceBounds.transform.position.y));
 
 			Vector3 origin = cameraToWorldMatrix.MultiplyPoint3x4(pixelToCameraMatrix.MultiplyPoint3x4(new Vector3(left + width + .1f, top, 0)));
 			txtObject.transform.position = origin;
@@ -113,7 +114,7 @@ public class GazeGestureManager : MonoBehaviour
 				txtObject.transform.localScale /= 2;
 			}
 
-			txtMesh.text = result["text"].str;
+			txtMesh.text = result["text"].str.Replace("\\n", "\n");
 		}
 	}
 
@@ -141,6 +142,7 @@ public class GazeGestureManager : MonoBehaviour
 			status.transform.rotation = cameraRotation;
 
 			StartCoroutine(PostToFaceAPI(imageBufferList.ToArray(), cameraToWorldMatrix, pixelToCameraMatrix));
+			//StartCoroutine(PostToFaceAPI(System.IO.File.ReadAllBytes("nyou045.png"), cameraToWorldMatrix, pixelToCameraMatrix));
 		}
 		photoCaptureObject.StopPhotoModeAsync(OnStoppedPhotoMode);
 	}
@@ -168,6 +170,10 @@ public class GazeGestureManager : MonoBehaviour
 				status.GetComponent<TextMesh>().text = "taking photo...";
 				status.SetActive(true);
 				PhotoCapture.CreateAsync(false, OnPhotoCaptureCreated);
+			} else
+			{
+				status.GetComponent<TextMesh>().text = "busy...";
+				status.SetActive(true);
 			}
 		};
 		recognizer.StartCapturingGestures();
